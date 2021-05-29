@@ -1,0 +1,2 @@
+websockets==9.0.2
+pyngrok==5.0.5
