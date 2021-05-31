@@ -1,7 +1,7 @@
 import logging
 
 # Global constants
-HOST = "localhost"
+IP = "localhost"
 PORT = 5050
 SLEEP_TIME = 10
 
