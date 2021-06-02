@@ -8,8 +8,8 @@ from pyngrok import ngrok
 async def sleep(websocket):
     """This function implements 10 seconds sleeping effect (the SLEEP_TIME is fixed in the config.py)
      and every second checks the connectivity of the client (websocket)."""
+    t = 1
     try:
-        t = 1
         while t <= config.SLEEP_TIME:
             await websocket.send("")
             await asyncio.sleep(1)
@@ -27,10 +27,9 @@ async def producer_handler(websocket, path) -> None:
     config.logger.info(f"Client {websocket.remote_address[:2]} is CONNECTED. Active clients N: {len(config.USERS)}")
     try:
         while True:
-            msg = await calculating_ra_dec_of_moon()
-            await websocket.send(msg)
-            # await asyncio.sleep(10)
-            await sleep(websocket)
+            await calculate_and_send_moon_ra_dec(config.FIX_RA, config.FIX_DEC, websocket)
+            #await websocket.send(msg)
+            #await sleep(websocket)
     except websockets.ConnectionClosedError as err:
         config.USERS.remove(websocket)
         config.logger.info(f"Client {websocket.remote_address[:2]} is DISCONNECTED. "
@@ -43,9 +42,26 @@ async def producer_handler(websocket, path) -> None:
         config.logger.error(f"Client {websocket.remote_address[:2]} has closed the connection with CloseOK: {err}")
 
 
-async def calculating_ra_dec_of_moon():
-    m = 20 * 100 - 1 + 3904  # just for testing
-    return f"Answer is: {m}"
+async def calculate_and_send_moon_ra_dec(FIX_RA, FIX_DEC, websocket):
+    new_ra = config.FIX_RA_IN_SEC
+    new_dec = config.FIX_DEC_IN_SEC
+    while True:
+        time_in_seconds = int((config.dt.datetime.now() - config.START_DATE).total_seconds())
+        try:
+            for sec in range(time_in_seconds):
+                new_ra = new_ra + config.AV_CHANGE_OF_M_RA_S
+                if new_ra > 86399:
+                    new_ra = new_ra % 86399
+                if 18 * 3600 < new_ra < 24 * 3600 or 0 < new_ra < 6 * 3600:
+                    new_dec = new_dec + config.AV_CHANGE_OF_M_DEC_S
+                elif 6 * 3600 <= new_ra <= 18 * 3600:
+                    new_dec = new_dec - config.AV_CHANGE_OF_M_DEC_S
+            ra = f'{(int(new_ra // 3600))}:{int((new_ra % 3600) // 60)}:{int((new_ra % 3600) % 60)}'
+            dec = f'{int(new_dec // 3600)}:{int((new_dec % 3600) // 60)}:{int((new_dec % 3600) % 60)}'
+            await websocket.send(f"{ra} {dec}")
+            await sleep(websocket)
+        except (websockets.ConnectionClosedError, websockets.ConnectionClosedOK) as err:
+            return err
 
 
 def create_and_run_websocket(ip: str, port: int):
