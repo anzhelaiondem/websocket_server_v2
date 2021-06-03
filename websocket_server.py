@@ -16,10 +16,9 @@ async def sleep(websocket):
 
 
 async def calculate_and_send_moon_ra_dec(websocket):
-    """The function calculates the difference of time between the fixed point and the current time,
-    calculates the RA and the DEC of the Moon (based on the difference), sends it to the client,
-    sleeps for mentioned amount of time and again calculates the difference (from the previous moment)
-     and sends new RA and DEC it to client """
+    """The function calculates the difference of time between the time point, calculates the RA 
+    and the DEC of the Moon (based on the difference), sends it to the client, sleeps for mentioned
+    amount of time and again repeats the cycle unless the client closes the connection."""
     new_ra = config.FIX_RA_IN_SEC
     new_dec = config.FIX_DEC_IN_SEC
     start_date = config.START_DATE
@@ -42,7 +41,7 @@ async def calculate_and_send_moon_ra_dec(websocket):
 
 async def producer_handler(websocket, path) -> None:
     """The function starts actively listening to any websocket client that connects to the websocket server.
-     It adds the client into the USERS' set and sends to it the RA and the DEC of the Moon every 10 seconds.
+     It adds the client into the USERS' set and calles the calculate_and_send_moon_ra_dec() function.
      As soon as the client is disconnected, the function removes it from the set and logs the information and
      the error into the users.log file."""
     config.USERS.add(websocket)
