@@ -10,8 +10,8 @@ async def sleep(websocket):
      and every second checks the connectivity of the client (websocket)."""
     t = 1
     while t <= config.SLEEP_TIME:
-        await websocket.send("")
         await asyncio.sleep(1)
+        await websocket.send("")
         t += 1
 
 
@@ -35,8 +35,8 @@ async def calculate_and_send_moon_ra_dec(websocket):
             elif 6 * 3600 <= new_ra <= 18 * 3600:
                 new_dec = new_dec - config.AV_CHANGE_OF_M_DEC_S
         ra = f'{(int(new_ra // 3600))}:{int((new_ra % 3600) // 60)}:{int((new_ra % 3600) % 60)}'
-        dec = f'{int(new_dec // 3600)}:{int((new_dec % 3600) // 60)}:{int((new_dec % 3600) % 60)}'
-        await websocket.send(f"RA:{ra} DEC:{dec}")
+        dec = f'{int(new_dec // 3600)}° {int((new_dec % 3600) // 60)}′ {int((new_dec % 3600) % 60)}′′'
+        await websocket.send(f"RA {ra}  DEC {dec}")
         await sleep(websocket)
 
 
