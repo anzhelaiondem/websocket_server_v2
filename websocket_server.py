@@ -1,8 +1,20 @@
 import websockets
 import asyncio
 import config
+import logging
+import moon_ra_dec as m
 
 from pyngrok import ngrok
+
+USERS = set()
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(levelname)s: %(asctime)s: %(name)s: %(message)s')
+handler = logging.FileHandler("users.log", mode="w")
+handler.setLevel(logging.DEBUG)
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 
 async def sleep(websocket):
@@ -15,50 +27,24 @@ async def sleep(websocket):
         t += 1
 
 
-async def calculate_and_send_moon_ra_dec(websocket):
-    """The function calculates the difference of time between the time point, calculates the RA 
-    and the DEC of the Moon (based on the difference), sends it to the client, sleeps for mentioned
-    amount of time and again repeats the cycle unless the client closes the connection."""
-    new_ra = config.FIX_RA_IN_SEC
-    new_dec = config.FIX_DEC_IN_SEC
-    start_date = config.START_DATE
-    while True:
-        time_in_seconds = int((config.dt.datetime.now() - start_date).total_seconds())
-        start_date = config.dt.datetime.now()
-        for sec in range(time_in_seconds):
-            new_ra = new_ra + config.AV_CHANGE_OF_M_RA_S
-            if new_ra > 86399:
-                new_ra = new_ra % 86399
-            if 18 * 3600 < new_ra < 24 * 3600 or 0 < new_ra < 6 * 3600:
-                new_dec = new_dec + config.AV_CHANGE_OF_M_DEC_S
-            elif 6 * 3600 <= new_ra <= 18 * 3600:
-                new_dec = new_dec - config.AV_CHANGE_OF_M_DEC_S
-        ra = f'{(int(new_ra // 3600))}:{int((new_ra % 3600) // 60)}:{int((new_ra % 3600) % 60)}'
-        dec = f'{int(new_dec // 3600)}° {int((new_dec % 3600) // 60)}′ {int((new_dec % 3600) % 60)}′′'
-        await websocket.send(f"RA {ra}  DEC {dec}")
-        await sleep(websocket)
-
-
 async def producer_handler(websocket, path) -> None:
     """The function starts actively listening to any websocket client that connects to the websocket server.
      It adds the client into the USERS' set and calles the calculate_and_send_moon_ra_dec() function.
      As soon as the client is disconnected, the function removes it from the set and logs the information and
      the error into the users.log file."""
-    config.USERS.add(websocket)
-    config.logger.info(f"Client {websocket.remote_address[:2]} is CONNECTED. Active clients N: {len(config.USERS)}")
+    USERS.add(websocket)
+    logger.info(f"Client {websocket.remote_address[:2]} is CONNECTED. Active clients N: {len(USERS)}")
     try:
         while True:
-            await calculate_and_send_moon_ra_dec(websocket)
+            await websocket.send(m.calculate_moon_ra_dec())
+            await sleep(websocket)
     except websockets.ConnectionClosedError as err:
-        config.USERS.remove(websocket)
-        config.logger.info(f"Client {websocket.remote_address[:2]} is DISCONNECTED. "
-                           f"Active clients N: {len(config.USERS)}")
-        config.logger.error(f"Client {websocket.remote_address[:2]} has closed the connection with CloseError: {err}")
+        logger.error(f"Client {websocket.remote_address[:2]} has closed the connection with CloseError: {err}")
     except websockets.ConnectionClosedOK as err:
-        config.USERS.remove(websocket)
-        config.logger.info(f"Client {websocket.remote_address[:2]} is DISCONNECTED. "
-                           f"Active clients N: {len(config.USERS)}")
-        config.logger.error(f"Client {websocket.remote_address[:2]} has closed the connection with CloseOK: {err}")
+        logger.error(f"Client {websocket.remote_address[:2]} has closed the connection with CloseOK: {err}")
+    finally:
+        USERS.remove(websocket)
+        logger.info(f"Active clients N: {len(USERS)}")
 
 
 def create_and_run_websocket(ip: str, port: int):
