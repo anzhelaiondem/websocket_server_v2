@@ -1,56 +1,62 @@
 import datetime as dt
 
-# Fixed date and time for the start.
+# Fixed start date and time.
 START_DATE = dt.datetime(2021, 6, 1, 23, 59, 59)
 # Fixed RA and DEC for the above mentioned START_DATE.
 FIX_RA = [22, 46, 54]
 FIX_DEC = [-13, 27, 21]
-# FIX_RA and FIX_DEC is converted into seconds.
-FIX_RA_IN_SEC = FIX_RA[0] * 3600 + FIX_RA[1] * 60 + FIX_RA[2]
-FIX_DEC_IN_SEC = FIX_DEC[0] * 3600 + FIX_DEC[1] * 60 + FIX_DEC[2]
-# The average change of the Moon RA (in seconds) when RA is between 0-5.
-AV_DELTA_RA_0_5 = 0.032
-# The average change of the Moon RA (in seconds) when RA is between 5-12.
-AV_DELTA_RA_5_12 = 0.036
-# The average change of the Moon RA (in seconds) when RA is between 12-17.
-AV_DELTA_RA_12_17 = 0.038
-# The average change of the Moon RA (in seconds) when RA is between 17-0.
-AV_DELTA_RA_17_24 = 0.041
-# The average change of the Moon DEC (in seconds) when RA is between 5-8 and 17-20.
-AV_DELTA_DEC_5_8_and_17_20 = 0.055
-# The average change of the Moon DEC (in seconds) when RA is between 0-5, 8-17, and 20-24.
-AV_DELTA_DEC_0_5_8_17_20_24 = 0.182
+# Dictionary of average change(value) of RA and DEC for the mentioned time slots/key.
+AV_DELTA_RA = {"0-5": 0.032, "5-12": 0.036, "12-17": 0.038, "17-0": 0.041}
+AV_DELTA_DEC = {"5-8 and 17-20": 0.055, "0-5, 8-17, and 20-0": 0.182}
 
 
-def calculate_moon_ra_dec():
-    new_ra = FIX_RA_IN_SEC
-    new_dec = FIX_DEC_IN_SEC
-    start_date = START_DATE
+def convert_ra_and_dec_into_seconds(ra: list[int], dec: list[int]):
+    """Takes list of RA and list of DEC coordinates, converts it into seconds and returns
+     tuple of RA and DEC in seconds."""
+    ra_in_sec = ra[0] * 3600 + ra[1] * 60 + ra[2]
+    dec_in_sec = dec[0] * 3600 + dec[1] * 60 + dec[2]
+    return ra_in_sec, dec_in_sec
+
+
+def convert_ra_and_dec_into_coordinates(ra: int, dec: int):
+    """Takes RA and DEC in seconds, converts it into coordinates and returns
+     tuple of RA and DEC."""
+    ra = f'{(int(ra // 3600))}:{int((ra % 3600) // 60)}:{int((ra % 3600) % 60)}'
+    dec = f'{int(dec // 3600)}° {int((dec % 3600) // 60)}′ {int((dec % 3600) % 60)}′′'
+    return ra, dec
+
+
+def calculate_moon_ra_dec(initial_ra: list[int] = FIX_RA, initial_dec: list[int] = FIX_DEC, initial_date=START_DATE,
+                          delta_ra: dict[str, float] = AV_DELTA_RA, delta_dec: dict[str, float] = AV_DELTA_DEC):
+    """The function takes initial/fixed RA, DEC, Datetime and delta change per second of RA and DEC for
+     different time slots. Runs the cycle for each seconds (difference of present and initial date)
+      adds/deducts changes per second and returns the string with final RA and DEC coordinates."""
+    new_ra, new_dec = convert_ra_and_dec_into_seconds(initial_ra, initial_dec)
+    start_date = initial_date
     time_in_seconds = int((dt.datetime.now() - start_date).total_seconds())
-    for sec in range(time_in_seconds):
+    for sec in range(1, time_in_seconds):
         if 0 <= new_ra < 5 * 3600:
-            new_ra = new_ra + AV_DELTA_RA_0_5
-            new_dec = new_dec + AV_DELTA_DEC_0_5_8_17_20_24
+            new_ra = new_ra + delta_ra.get("0-5")
+            new_dec = new_dec + delta_dec.get("0-5, 8-17, and 20-0")
         elif 5 * 3600 <= new_ra < 6 * 3600:
-            new_ra = new_ra + AV_DELTA_RA_5_12
-            new_dec = new_dec + AV_DELTA_DEC_5_8_and_17_20
+            new_ra = new_ra + delta_ra.get("5-12")
+            new_dec = new_dec + delta_dec.get("5-8 and 17-20")
         elif 6 * 3600 <= new_ra < 8 * 3600:
-            new_ra = new_ra + AV_DELTA_RA_5_12
-            new_dec = new_dec - AV_DELTA_DEC_5_8_and_17_20
+            new_ra = new_ra + delta_ra.get("5-12")
+            new_dec = new_dec - delta_dec.get("5-8 and 17-20")
         elif 8 * 3600 <= new_ra < 12 * 3600:
-            new_ra = new_ra + AV_DELTA_RA_5_12
-            new_dec = new_dec - AV_DELTA_DEC_0_5_8_17_20_24
+            new_ra = new_ra + delta_ra.get("5-12")
+            new_dec = new_dec - delta_dec.get("0-5, 8-17, and 20-0")
         elif 12 * 3600 <= new_ra < 17 * 3600:
-            new_ra = new_ra + AV_DELTA_RA_12_17
-            new_dec = new_dec - AV_DELTA_DEC_0_5_8_17_20_24
+            new_ra = new_ra + delta_ra.get("12-17")
+            new_dec = new_dec - delta_dec.get("5-8 and 17-20")
         elif 17 * 3600 <= new_ra < 18 * 3600:
-            new_ra = new_ra + AV_DELTA_RA_17_24
-            new_dec = new_dec - AV_DELTA_DEC_0_5_8_17_20_24
+            new_ra = new_ra + delta_ra.get("17-0")
+            new_dec = new_dec - delta_dec.get("0-5, 8-17, and 20-0")
         elif 18 * 3600 <= new_ra < 24 * 3600:
-            new_ra = new_ra + AV_DELTA_RA_17_24
-            new_dec = new_dec + AV_DELTA_DEC_0_5_8_17_20_24
+            new_ra = new_ra + delta_ra.get("17-0")
+            new_dec = new_dec + delta_dec.get("0-5, 8-17, and 20-0")
         if new_ra > 86399:
             new_ra = new_ra % 86399
-    ra = f'{(int(new_ra // 3600))}:{int((new_ra % 3600) // 60)}:{int((new_ra % 3600) % 60)}'
-    dec = f'{int(new_dec // 3600)}° {int((new_dec % 3600) // 60)}′ {int((new_dec % 3600) % 60)}′′'
-    return f" RA: {ra}, DEC: {dec}"
+    ra, dec = convert_ra_and_dec_into_coordinates(new_ra, new_dec)
+    return f"RA: {ra}, DEC: {dec}"
