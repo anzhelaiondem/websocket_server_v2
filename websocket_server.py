@@ -29,19 +29,22 @@ async def sleep(websocket):
 
 async def producer_handler(websocket, path) -> None:
     """The function starts actively listening to any websocket client that connects to the websocket server.
-     It adds the client into the USERS' set and calles the calculate_and_send_moon_ra_dec() function.
+     It adds the client into the USERS' set and calls the calculate_and_send_moon_ra_dec() function.
      As soon as the client is disconnected, the function removes it from the set and logs the information and
      the error into the users.log file."""
     USERS.add(websocket)
     logger.info(f"Client {websocket.remote_address[:2]} is CONNECTED. Active clients N: {len(USERS)}")
     try:
         while True:
-            await websocket.send(m.calculate_moon_ra_dec())
+            await websocket.send(
+                m.calculate_moon_ra_dec(m.FIX_RA, m.FIX_DEC, m.START_DATE, m.AV_DELTA_RA, m.AV_DELTA_DEC))
             await sleep(websocket)
     except websockets.ConnectionClosedError as err:
         logger.error(f"Client {websocket.remote_address[:2]} has closed the connection with CloseError: {err}")
     except websockets.ConnectionClosedOK as err:
         logger.error(f"Client {websocket.remote_address[:2]} has closed the connection with CloseOK: {err}")
+    except Exception as err:
+        logger.exception(f"UNEXPECTED ERROR: {err}")
     finally:
         USERS.remove(websocket)
         logger.info(f"Active clients N: {len(USERS)}")
